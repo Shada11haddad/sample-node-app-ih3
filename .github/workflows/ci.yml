@@ -13,8 +13,8 @@ permissions:
 env:
   APP_PORT: 3000
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/frontendapp-node
-  AZURE_RESOURCE_GROUP: web-labs-rg-saurabh
-  AZURE_WEBAPP_NAME: frontendapp-web-saurabh
+  AZURE_RESOURCE_GROUP: shadahaddad-web-labs-rg     # <<< fixed
+  AZURE_WEBAPP_NAME: frontendapp-web-20644          # <<< fixed
 
 jobs:
   build-test-and-deploy:
@@ -46,8 +46,13 @@ jobs:
         with:
           auth-type: SERVICE_PRINCIPAL
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          # AZURE_CREDENTIALS must be:
-          # {"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}
+          # AZURE_CREDENTIALS JSON: {"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}
+
+      - name: Verify RG & WebApp exist (guard)
+        run: |
+          echo "Subscription in use:" && az account show -o table
+          az group show -n "${{ env.AZURE_RESOURCE_GROUP }}" -o table
+          az webapp show -g "${{ env.AZURE_RESOURCE_GROUP }}" -n "${{ env.AZURE_WEBAPP_NAME }}" -o table
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -67,14 +72,14 @@ jobs:
 
       - name: Configure Web App app settings
         run: |
-          # Set container port (Kudu reads this for single-container Linux)
+          # Port Kudu reads for single-container Linux
           az webapp config appsettings set \
             -g "${{ env.AZURE_RESOURCE_GROUP }}" \
             -n "${{ env.AZURE_WEBAPP_NAME }}" \
             --settings WEBSITES_PORT=${{ env.APP_PORT }} \
                        DOCKER_REGISTRY_SERVER_URL=https://index.docker.io/v1/
 
-          # For PRIVATE Docker Hub repo, also set credentials:
+          # For PRIVATE Docker Hub repos, also set pull credentials:
           if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             az webapp config appsettings set \
               -g "${{ env.AZURE_RESOURCE_GROUP }}" \
